@@ -1,4 +1,5 @@
 import os
+import argparse
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
@@ -36,7 +37,7 @@ class InferenceDataset(Dataset):
 
 
 # 2. 推理主函数
-def run_inference(input_dir, output_dir, checkpoint_path, new_size=(256, 256), batch_size=8, device_str='cuda:3'):
+def run_inference(input_dir, output_dir, checkpoint_path, new_size=(256, 256), batch_size=8, device_str='cuda:0', num_workers=4):
     os.makedirs(output_dir, exist_ok=True)
     device = torch.device(device_str if torch.cuda.is_available() else 'cpu')
 
@@ -52,7 +53,7 @@ def run_inference(input_dir, output_dir, checkpoint_path, new_size=(256, 256), b
 
     # 构建数据装载器
     dataset = InferenceDataset(input_dir, new_size=new_size)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
     print(f">>> 待处理图像总数: {len(dataset)}，开始推理...")
 
@@ -75,21 +76,24 @@ def run_inference(input_dir, output_dir, checkpoint_path, new_size=(256, 256), b
 
 
 if __name__ == '__main__':
-    # ================= 配置推理参数 =================
-    INPUT_DIR = r"./Inputs"        # 输入图像目录
-    OUTPUT_DIR = r"./Outputs"   # 输出保存目录
-    CHECKPOINT_PATH = r"./checkpoints/u2ie_epoch_50.pth" # 模型权重路径
-
-    IMAGE_SIZE = (256, 256)
-    BATCH_SIZE = 8
-    DEVICE = 'cuda:0'
+    # ================= 配置推理参数 (可通过命令行覆盖) =================
+    parser = argparse.ArgumentParser(description="U2IE-Net inference")
+    parser.add_argument("--input_dir", default=r"./Inputs", help="输入图像目录")
+    parser.add_argument("--output_dir", default=r"./Outputs", help="输出保存目录")
+    parser.add_argument("--checkpoint", default=r"./checkpoints/u2ie_epoch_50.pth", help="模型权重路径")
+    parser.add_argument("--image_size", type=int, default=256)
+    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--num_workers", type=int, default=min(4, os.cpu_count() or 1))
+    args = parser.parse_args()
     # ================================================
 
     run_inference(
-        input_dir=INPUT_DIR,
-        output_dir=OUTPUT_DIR,
-        checkpoint_path=CHECKPOINT_PATH,
-        new_size=IMAGE_SIZE,
-        batch_size=BATCH_SIZE,
-        device_str=DEVICE
+        input_dir=args.input_dir,
+        output_dir=args.output_dir,
+        checkpoint_path=args.checkpoint,
+        new_size=(args.image_size, args.image_size),
+        batch_size=args.batch_size,
+        device_str=args.device,
+        num_workers=args.num_workers
     )
